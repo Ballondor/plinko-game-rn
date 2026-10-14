@@ -1,203 +1,185 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { MAX_ROWS, MIN_ROWS, Risk } from '../game/multipliers';
+import { MAX_MAX_SCORE, MIN_MAX_SCORE } from '../game/scores';
+import { colors, font, palette, radius } from '../theme';
 
 type Props = {
-  betText: string;
-  onBetTextChange: (text: string) => void;
-  onHalveBet: () => void;
-  onDoubleBet: () => void;
-  risk: Risk;
-  onRiskChange: (risk: Risk) => void;
-  rows: number;
-  onRowsChange: (rows: number) => void;
-  settingsLocked: boolean;
+  maxScoreText: string;
+  onMaxScoreTextChange: (text: string) => void;
+  onMaxScoreStep: (delta: number) => void;
+  canDecrement: boolean;
+  canIncrement: boolean;
+  maxScoreValid: boolean;
+  maxScoreLocked: boolean;
+  name: string;
+  onNameChange: (text: string) => void;
   canDrop: boolean;
   onDrop: () => void;
-  autoOn: boolean;
-  onToggleAuto: () => void;
 };
 
-const RISKS: { value: Risk; label: string }[] = [
-  { value: 'low', label: '낮음' },
-  { value: 'medium', label: '중간' },
-  { value: 'high', label: '높음' },
-];
-
 export function Controls(props: Props) {
-  const { settingsLocked, rows } = props;
-
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>베팅 금액</Text>
+      <Text style={styles.label}>점수 범위</Text>
       <View style={styles.row}>
+        <View style={styles.fixedScore}>
+          <Text style={styles.fixedScoreText}>0</Text>
+        </View>
+        <Text style={styles.tilde}>~</Text>
+        <StepButton label="−" onPress={() => props.onMaxScoreStep(-1)} disabled={props.maxScoreLocked || !props.canDecrement} />
         <TextInput
-          style={styles.input}
-          value={props.betText}
-          onChangeText={props.onBetTextChange}
-          keyboardType="decimal-pad"
-          editable={!props.autoOn}
+          style={[styles.input, styles.scoreInput, !props.maxScoreValid && styles.inputInvalid]}
+          value={props.maxScoreText}
+          onChangeText={props.onMaxScoreTextChange}
+          keyboardType="number-pad"
+          maxLength={2}
+          editable={!props.maxScoreLocked}
           selectTextOnFocus
         />
-        <SmallButton label="½" onPress={props.onHalveBet} disabled={props.autoOn} />
-        <SmallButton label="2×" onPress={props.onDoubleBet} disabled={props.autoOn} />
+        <StepButton label="+" onPress={() => props.onMaxScoreStep(1)} disabled={props.maxScoreLocked || !props.canIncrement} />
+        <Text style={styles.unit}>점</Text>
       </View>
+      {!props.maxScoreValid && (
+        <Text style={styles.hint}>
+          {MIN_MAX_SCORE}~{MAX_MAX_SCORE} 사이 숫자를 입력해 주세요
+        </Text>
+      )}
 
-      <Text style={styles.label}>위험도</Text>
-      <View style={styles.segment}>
-        {RISKS.map((r) => (
-          <Pressable
-            key={r.value}
-            style={[styles.segmentItem, props.risk === r.value && styles.segmentItemActive]}
-            onPress={() => props.onRiskChange(r.value)}
-            disabled={settingsLocked}
-          >
-            <Text style={[styles.segmentText, settingsLocked && styles.disabledText]}>{r.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      <Text style={styles.label}>참석자 이름</Text>
+      <TextInput
+        style={[styles.input, styles.nameInput]}
+        value={props.name}
+        onChangeText={props.onNameChange}
+        placeholder="이름을 입력하세요"
+        placeholderTextColor={colors.textMuted}
+        maxLength={12}
+        returnKeyType="go"
+        onSubmitEditing={() => props.canDrop && props.onDrop()}
+      />
 
-      <Text style={styles.label}>줄 수</Text>
-      <View style={styles.row}>
-        <SmallButton label="−" onPress={() => props.onRowsChange(rows - 1)} disabled={settingsLocked || rows <= MIN_ROWS} />
-        <View style={styles.rowsValue}>
-          <Text style={styles.rowsText}>{rows}</Text>
-        </View>
-        <SmallButton label="+" onPress={() => props.onRowsChange(rows + 1)} disabled={settingsLocked || rows >= MAX_ROWS} />
-      </View>
-
-      <View style={[styles.row, { marginTop: 14 }]}>
-        <Pressable
-          style={({ pressed }) => [styles.dropButton, !props.canDrop && styles.buttonDisabled, pressed && styles.pressed]}
-          onPress={props.onDrop}
-          disabled={!props.canDrop || props.autoOn}
-        >
-          <Text style={styles.dropText}>공 떨어뜨리기</Text>
-        </Pressable>
-        <Pressable
-          style={({ pressed }) => [styles.autoButton, props.autoOn && styles.autoButtonOn, pressed && styles.pressed]}
-          onPress={props.onToggleAuto}
-        >
-          <Text style={styles.autoText}>{props.autoOn ? '정지' : '자동'}</Text>
-        </Pressable>
-      </View>
+      <Pressable
+        style={({ pressed }) => [styles.dropButton, !props.canDrop && styles.disabled, pressed && styles.pressed]}
+        onPress={props.onDrop}
+        disabled={!props.canDrop}
+      >
+        <Text style={styles.dropText}>공 떨어뜨리기</Text>
+      </Pressable>
     </View>
   );
 }
 
-function SmallButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+function StepButton({ label, onPress, disabled }: { label: string; onPress: () => void; disabled: boolean }) {
   return (
     <Pressable
-      style={({ pressed }) => [styles.smallButton, disabled && styles.buttonDisabled, pressed && styles.pressed]}
+      style={({ pressed }) => [styles.stepButton, disabled && styles.disabled, pressed && styles.pressed]}
       onPress={onPress}
       disabled={disabled}
+      hitSlop={4}
     >
-      <Text style={styles.smallButtonText}>{label}</Text>
+      <Text style={styles.stepButtonText}>{label}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#1e2a3a',
-    borderRadius: 14,
-    padding: 14,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.xl,
+    padding: 24,
+    paddingTop: 16,
   },
   label: {
-    color: '#8b9cb3',
-    fontSize: 12,
-    fontWeight: '600',
+    color: colors.textMuted,
+    fontFamily: font.semibold,
+    fontSize: 13,
     marginTop: 8,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   row: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
   },
   input: {
-    flex: 1,
-    backgroundColor: '#0f1923',
-    borderRadius: 8,
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-    paddingHorizontal: 12,
+    backgroundColor: palette.black,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
+    color: colors.text,
+    fontSize: 18,
+    paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  smallButton: {
-    minWidth: 46,
-    backgroundColor: '#2f4157',
-    borderRadius: 8,
+  scoreInput: {
+    flex: 1,
+    textAlign: 'center',
+    fontFamily: font.mono,
+    fontWeight: '700',
+  },
+  nameInput: {
+    fontFamily: font.semibold,
+  },
+  inputInvalid: {
+    borderColor: palette.blush,
+  },
+  fixedScore: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  fixedScoreText: {
+    color: colors.textMuted,
+    fontFamily: font.mono,
+    fontWeight: '700',
+    fontSize: 18,
+  },
+  stepButton: {
+    width: 44,
+    alignSelf: 'stretch',
+    borderRadius: radius.lg,
+    borderWidth: 1,
+    borderColor: colors.borderStrong,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  smallButtonText: {
-    color: '#fff',
+  stepButtonText: {
+    color: colors.text,
+    fontFamily: font.bold,
+    fontSize: 22,
+  },
+  tilde: {
+    color: colors.textMuted,
+    fontFamily: font.mono,
     fontSize: 16,
-    fontWeight: '700',
   },
-  segment: {
-    flexDirection: 'row',
-    backgroundColor: '#0f1923',
-    borderRadius: 8,
-    padding: 3,
+  unit: {
+    color: colors.textMuted,
+    fontFamily: font.semibold,
+    fontSize: 15,
   },
-  segmentItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderRadius: 6,
-  },
-  segmentItemActive: {
-    backgroundColor: '#2f4157',
-  },
-  segmentText: {
-    color: '#fff',
-    fontWeight: '700',
-  },
-  disabledText: {
-    opacity: 0.4,
-  },
-  rowsValue: {
-    flex: 1,
-    backgroundColor: '#0f1923',
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 10,
-  },
-  rowsText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+  hint: {
+    color: palette.blush,
+    fontFamily: font.regular,
+    fontSize: 12,
+    marginTop: 6,
   },
   dropButton: {
-    flex: 1,
-    backgroundColor: '#00e701',
-    borderRadius: 10,
+    marginTop: 16,
+    backgroundColor: palette.primary,
+    borderRadius: radius.lg,
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
   },
   dropText: {
-    color: '#05310a',
-    fontSize: 16,
-    fontWeight: '800',
+    color: colors.onPrimary,
+    fontFamily: font.black,
+    fontSize: 18,
   },
-  autoButton: {
-    width: 76,
-    backgroundColor: '#2f4157',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  autoButtonOn: {
-    backgroundColor: '#ff3b5c',
-  },
-  autoText: {
-    color: '#fff',
-    fontWeight: '800',
-  },
-  buttonDisabled: {
-    opacity: 0.4,
+  disabled: {
+    opacity: 0.35,
   },
   pressed: {
     opacity: 0.75,

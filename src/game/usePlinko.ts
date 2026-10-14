@@ -4,37 +4,39 @@ import { createTrajectory, Trajectory } from './trajectory';
 
 export type Ball = {
   id: number;
-  bet: number;
-  multiplier: number;
+  name: string;
+  score: number;
   trajectory: Trajectory;
   startedAt: number; // ms
 };
 
-export type LandedBall = Ball & { payout: number };
-
 const now = () => performance.now();
 
 // 공 생성과 프레임 루프를 관리한다. 공이 칸에 닿으면 onLand가 호출된다.
-export function usePlinko(layout: BoardLayout | null, onLand: (ball: LandedBall) => void) {
+export function usePlinko(layout: BoardLayout | null, onLand: (ball: Ball) => void) {
   const ballsRef = useRef<Ball[]>([]);
   const nextId = useRef(1);
   const onLandRef = useRef(onLand);
-  onLandRef.current = onLand;
+  useEffect(() => {
+    onLandRef.current = onLand;
+  }, [onLand]);
 
-  const [frameTime, setFrameTime] = useState(now);
+  // 렌더링용 스냅샷. 루프는 ref를 갱신하고 매 프레임 스냅샷을 상태로 내보낸다.
+  const [frame, setFrame] = useState<{ balls: Ball[]; time: number }>(() => ({ balls: [], time: now() }));
   const [running, setRunning] = useState(false);
 
   const drop = useCallback(
-    (bet: number, multipliers: number[]) => {
+    (name: string, scores: number[]) => {
       if (!layout) return;
       const trajectory = createTrajectory(layout);
       ballsRef.current.push({
         id: nextId.current++,
-        bet,
-        multiplier: multipliers[trajectory.bin],
+        name,
+        score: scores[trajectory.bin],
         trajectory,
         startedAt: now(),
       });
+      setFrame({ balls: [...ballsRef.current], time: now() });
       setRunning(true);
     },
     [layout],
@@ -51,8 +53,8 @@ export function usePlinko(layout: BoardLayout | null, onLand: (ball: LandedBall)
         if (done) landed.push(b);
         return !done;
       });
-      landed.forEach((b) => onLandRef.current({ ...b, payout: round2(b.bet * b.multiplier) }));
-      setFrameTime(t);
+      landed.forEach((b) => onLandRef.current(b));
+      setFrame({ balls: [...ballsRef.current], time: t });
       if (ballsRef.current.length > 0) {
         raf = requestAnimationFrame(tick);
       } else {
@@ -63,7 +65,12 @@ export function usePlinko(layout: BoardLayout | null, onLand: (ball: LandedBall)
     return () => cancelAnimationFrame(raf);
   }, [running]);
 
-  return { balls: ballsRef.current, frameTime, drop, inFlight: running };
-}
+  // 떨어지는 중인 공을 모두 없앤다 (onLand는 호출되지 않음)
+  const reset = useCallback(() => {
+    ballsRef.current = [];
+    setFrame({ balls: [], time: now() });
+    setRunning(false);
+  }, []);
 
-export const round2 = (n: number) => Math.round(n * 100) / 100;
+  return { balls: frame.balls, frameTime: frame.time, drop, reset, inFlight: running };
+}

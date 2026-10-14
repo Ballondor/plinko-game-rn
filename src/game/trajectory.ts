@@ -25,7 +25,8 @@ export function createTrajectory(layout: BoardLayout, random: () => number = Mat
   const contactOffset = pegRadius + ballRadius;
 
   // 한 줄을 약 0.2초에 내려가도록 중력을 핀 간격에 비례해 정한다.
-  const rowTime = 0.2;
+  // 줄이 많으면 전체 낙하가 4초 안팎이 되도록 줄당 시간을 줄인다.
+  const rowTime = Math.min(0.2, 4 / rows);
   const bounce = gap * 0.3;
   const g = ((Math.sqrt(2 * bounce) + Math.sqrt(2 * bounce + 2 * gap)) / rowTime) ** 2;
 
